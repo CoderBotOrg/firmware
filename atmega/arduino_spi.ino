@@ -1,90 +1,68 @@
-/*
-SPI Pin outs
-
-MOSI -> GPIO11
-MISO -> GPIO12
-SCK  -> GPIO13
-SS   -> GPIO10
-
-LED_1 -> GPIO6
-LED_2 -> GPIO7
-*/
-
-//Import the Library
 #include <SPI.h>
-#include <stdlib.h>
-
-char buf [100];
-volatile byte pos;
-volatile boolean process_it;
-
-void setup (void)
-{
-  //Start the Serial for the debugging
-  Serial.begin (115200);   
-
+void setup() {
   // have to send on master in, *slave out*
   pinMode(MISO, OUTPUT);
-  pinMode(10,INPUT);
 
-  //Setting up the LED pin as OUTPUT
-  pinMode(7,OUTPUT);
-  pinMode(6,OUTPUT);
-  
   // turn on SPI in slave mode
   SPCR |= _BV(SPE);
-  
-  // get ready for an interrupt 
-  pos = 0;   // buffer empty
-  process_it = false;
 
-  // now turn on interrupts
+  // turn on interrupts
   SPI.attachInterrupt();
-
-}  // end of setup
-
+  pinMode(PD1, OUTPUT);
+  pinMode(PD2, OUTPUT);
+  pinMode(PD3, OUTPUT);
+  pinMode(PD4, OUTPUT);
+  pinMode(PD5, OUTPUT);
+  pinMode(PD6, OUTPUT);
+  pinMode(PD7, OUTPUT);
+  pinMode(PB0, OUTPUT);
+  pinMode(PB6, OUTPUT);
+  pinMode(PB7, OUTPUT);
+  pinMode(PC0, OUTPUT);
+  pinMode(PC1, OUTPUT);
+  pinMode(PC2, OUTPUT);
+  pinMode(PC3, OUTPUT);
+  pinMode(A6, INPUT);
+  pinMode(A7, INPUT);
+}
 
 // SPI interrupt routine
 ISR (SPI_STC_vect)
 {
-byte c = SPDR;  // grab byte from SPI Data Register
-  if(digitalRead(10)==0){
-  // add to buffer if room
-  if (pos < sizeof buf)
-    {
-    buf [pos++] = c;
-    
-    // example: newline means time to process buffer
-    if (c == '\n')
-      process_it = true;
-      
-    }  // end of room available
+  byte c = SPDR;
+  if(c == 0x01) {
+    digitalWrite(PD1, HIGH);
+    digitalWrite(PD2, HIGH);
+    digitalWrite(PD3, HIGH);
+    digitalWrite(PD4, HIGH);
+    digitalWrite(PD5, HIGH);
+    digitalWrite(PD6, HIGH);
+    digitalWrite(PD7, HIGH);
+    digitalWrite(PB0, HIGH);
+    digitalWrite(PB6, HIGH);
+    digitalWrite(PB7, HIGH);
+    digitalWrite(PC0, HIGH);
+    digitalWrite(PC1, HIGH);
+    digitalWrite(PC2, HIGH);
+    digitalWrite(PC3, HIGH);
+  } else if (c == 0x00){
+    digitalWrite(PD1, LOW);
+    digitalWrite(PD2, LOW);
+    digitalWrite(PD3, LOW);
+    digitalWrite(PD4, LOW);
+    digitalWrite(PD5, LOW);
+    digitalWrite(PD6, LOW);
+    digitalWrite(PD7, LOW);
+    digitalWrite(PB0, LOW);
+    digitalWrite(PB6, LOW);
+    digitalWrite(PB7, LOW);
+    digitalWrite(PC0, LOW);
+    digitalWrite(PC1, LOW);
+    digitalWrite(PC2, LOW);
+    digitalWrite(PC3, LOW);
   }
-}  // end of interrupt routine SPI_STC_vect
+ 
+  SPDR = (analogRead(A2)/4);
+}  // end of interrupt service routine (ISR) for SPI
 
-// main loop - wait for flag set in interrupt routine
-void loop (void)
-{
-  if (process_it)
-  {
-    buf [pos] = 0;
-    int buff = atoi(buf);  
-    Serial.println (buff);
-    switch(buff){
-      case 10:
-        digitalWrite(6,HIGH);
-        digitalWrite(7,LOW);
-        break;
-      case 11:
-        digitalWrite(6,LOW);
-        digitalWrite(7,HIGH);
-        break;
-    }
-    pos = 0;
-    process_it = false;
-  }  // end of flag set
-    
-}  
-
-// end of program
-
+void loop () { }
