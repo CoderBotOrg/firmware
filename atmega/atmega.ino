@@ -1,4 +1,5 @@
 #include <SPI.h>
+#include "FastLED.h"
 
 /* 
  *  buffer is used to store input message.
@@ -31,8 +32,11 @@
 
 #define POS_START     0
 #define POS_COMMAND   1
-#define POS_ADDR      2
-#define POS_DATA      3
+#define POS_ADDR      2 // led begin
+#define POS_DATA      3 // led end
+#define POS_DATA_1    4 // led r
+#define POS_DATA_2    5 // led g
+#define POS_DATA_3    6 // led b
 
 #define START         0xff
 
@@ -40,10 +44,16 @@
 #define CMD_SET_DATA  0x1
 #define CMD_GET_DATA  0x2
 #define CMD_SET_MODE  0x3
+#define CMD_SET_LED   0x4
+#define NUM_LEDS  60
+#define DATA_PIN  7
+
+CRGB leds[NUM_LEDS];
+uint8_t led_sem = 0;
 
 byte buffer[8];
 int position;
-int outputs[11] = {PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7, PC0, PC1, PC2};
+int outputs[10] = {PD0, PD1, PD2, PD3, PD4, PD5, PD7, PC0, PC1, PC2};
 int inputs[6] = {A6, A7, PB0, PB6, PB7, PC3};
 int values[6] = {0, 0, 0, 0, 0, 0};
 int input_types[6] = {TYPE_ANALOG, TYPE_ANALOG, TYPE_DIGITAL, TYPE_DIGITAL, TYPE_DIGITAL, TYPE_DIGITAL};
@@ -60,13 +70,15 @@ void setup() {
 
   // turn on interrupts
   SPI.attachInterrupt();
-  for (int i = 0; i < sizeof(outputs); i++) {
+  for (int i = 0; i < sizeof(outputs) / sizeof(int); i++) {
     pinMode(outputs[i], OUTPUT);
     digitalWrite(outputs[i], LOW);
   }
-  for (int i = 0; i < sizeof(inputs); i++) {
+  for (int i = 0; i < sizeof(inputs) / sizeof(int); i++) {
     pinMode(inputs[i], INPUT);
   }
+
+  FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_LEDS);
 }
 
 // SPI interrupt routine
@@ -83,22 +95,38 @@ ISR (SPI_STC_vect)
   buffer[position] = c;
   if(position == POS_ADDR && buffer[POS_COMMAND] == CMD_GET_DATA) {
     pin_pos = buffer[POS_ADDR];    ;
-    if( pin_pos >= 0 && pin_pos < sizeof(inputs)) {
+    if( pin_pos >= 0 && pin_pos < sizeof(inputs) /sizeof(int)) {
       SPDR = values[pin_pos];
     }
   } else if(position == POS_DATA && buffer[POS_COMMAND] == CMD_SET_DATA) {
     pin_pos = buffer[POS_ADDR];
-    if( pin_pos >= 0 && pin_pos < sizeof(outputs)) {
+    if( pin_pos >= 0 && pin_pos < sizeof(outputs) /sizeof(int) ) {
       pin_id = outputs[pin_pos];
       value = buffer[POS_DATA] == 0 ? LOW : HIGH;
       digitalWrite(pin_id, value);
+    }
+  } else if(position == POS_DATA_3 && buffer[POS_COMMAND] == CMD_SET_LED) {
+    if(led_sem == 0) {
+      led_sem = 1;
+      uint8_t led_begin = buffer[POS_ADDR];
+      uint8_t led_end = buffer[POS_DATA];
+      uint8_t g = buffer[POS_DATA_1];
+      uint8_t r = buffer[POS_DATA_2];
+      uint8_t b = buffer[POS_DATA_3];
+      for(int i = led_begin; i <= led_end; i++) {
+        leds[i].red = r;
+        leds[i].green = g;
+        leds[i].blue = b;
+      }  
+      FastLED.show(); 
+      led_sem = 0;
     }
   }
   position++;
 }  // end of interrupt service routine (ISR) for SPI
 
 void loop () {
-  for (int i = 0; i < sizeof(inputs); i++) {
+  for (int i = 0; i < sizeof(inputs) / sizeof(int); i++) {
     if(input_types[i] == TYPE_DIGITAL) {
       values[i] = digitalRead(inputs[i]) == LOW ? 0x00 : 0x01;
     } else if(input_types[i] == TYPE_ANALOG) { 
